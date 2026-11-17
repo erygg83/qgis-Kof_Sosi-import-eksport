@@ -1,0 +1,6 @@
+__pycache__/
+*.py[cod]
+dist/
+/*.sos
+/*.kof
+/sosi-kof-import*.json

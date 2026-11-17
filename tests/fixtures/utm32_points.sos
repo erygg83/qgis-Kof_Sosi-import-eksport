@@ -1,0 +1,33 @@
+.HODE
+..TEGNSETT UTF-8
+..TRANSPAR
+...KOORDSYS 22
+...ORIGO-NØ 6790000 398000
+...ENHET 0.01
+...ENHET-H 0.001
+...VERT-DATUM NN2000
+..OMRÅDE
+...MIN-NØ 6790000 398000
+...MAX-NØ 6790015 398004
+..SOSI-VERSJON 4.5
+.PUNKT 11:
+..OBJTYPE Fastmerke
+..NAVN "Punkt utan høgd"
+..NØ
+1378 312
+.PUNKT 12:
+..OBJTYPE Fastmerke
+..NAVN "Punkt ved null"
+..NØH
+1400 313 0
+.PUNKT 13:
+..OBJTYPE Fastmerke
+..NAVN "Punkt over null"
+..NØH
+1420 315 12345
+.PUNKT 14:
+..OBJTYPE Fastmerke
+..NAVN "Punkt under null"
+..NØH
+1450 317 -1750
+.SLUTT
