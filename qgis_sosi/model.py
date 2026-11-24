@@ -46,15 +46,18 @@ class SosiVectorSet:
     catalogue: str
 
 
-def validate_points(points):
+def validate_points(points, *, require_unique_ids=True):
     if not points:
         raise FormatError("Fila eller laget har ingen støtta punkt.")
 
     seen = set()
     for point in points:
-        if not point.point_id or point.point_id in seen:
-            raise FormatError(f"Tom eller duplisert punkt-ID: {point.point_id!r}.")
-        seen.add(point.point_id)
+        if not point.point_id:
+            raise FormatError("Tom punkt-ID.")
+        if require_unique_ids:
+            if point.point_id in seen:
+                raise FormatError(f"Fila eller laget har duplisert punkt-ID: {point.point_id!r}.")
+            seen.add(point.point_id)
         if any(not isfinite(value) for value in coordinates(point)):
             raise FormatError(f"Punkt {point.point_id} har ein ugyldig koordinat.")
 

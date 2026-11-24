@@ -203,7 +203,7 @@ class QgisPointTests(unittest.TestCase):
         with TemporaryDirectory() as folder:
             parent = Path(folder)
             a = FIXTURES / "netlin05_points.kof"
-            b = parent / "another.kof"
+            b = parent / "another_temp"
             copyfile(a, b)
             broken = parent / "broken.sos"
             broken.write_text("invalid", encoding="ascii")

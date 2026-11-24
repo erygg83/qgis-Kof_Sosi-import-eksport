@@ -80,12 +80,33 @@ class PointFormatTests(unittest.TestCase):
             self.assertEqual(export_file(path, replace(source, crs="EPSG:25832", height_datum="NN2000")), 0)
             self.assertEqual(read_file(path), source)
 
-    def test_kof_rejects_other_layout_duplicate_and_overflow(self):
+    def test_kof_roundtrip_preserves_repeated_point_names_and_rows(self):
+        rows = (FIXTURES / "netlin05_points.kof").read_bytes().splitlines()
+        source = kof.decode(b"\n".join((rows[0], rows[1].replace(b"A12", b"A11"), rows[0])))
+        expected = read_file(FIXTURES / "netlin05_points.kof").points
+        self.assertEqual(source.points, (expected[0], replace(expected[1], point_id="A11"), expected[0]))
+        self.assertEqual(kof.decode(kof.encode(source)), source)
+
+    def test_extensionless_input_uses_content_and_full_format_validation(self):
+        with TemporaryDirectory() as folder:
+            path = Path(folder) / "temporary_copy"
+            for fixture in ("utm32_points.sos", "netlin05_points.kof"):
+                source = FIXTURES / fixture
+                path.write_bytes(source.read_bytes())
+                self.assertEqual(read_file(path), read_file(source))
+            path.write_bytes(b"-inactive\n\n 05 bad layout\n")
+            with self.assertRaisesRegex(FormatError, "KOF linje 3"):
+                read_file(path)
+            path.write_bytes(b"unknown")
+            with self.assertRaisesRegex(FormatError, "manglar filending"):
+                read_file(path)
+
+    def test_kof_rejects_other_layout_empty_name_and_overflow(self):
         good_row = (FIXTURES / "netlin05_points.kof").read_bytes().splitlines()[0]
         for malformed, message in (
             (b" 00 comment", "05-blokker"),
             (b" 05 A 8601 6790013.780 398003.120", "feltplasseringa"),
-            (good_row + b"\n" + good_row, "duplisert"),
+            (good_row.replace(b"A11", b"   "), "Tom punkt-ID"),
         ):
             with self.subTest(malformed=malformed):
                 with self.assertRaisesRegex(FormatError, message):

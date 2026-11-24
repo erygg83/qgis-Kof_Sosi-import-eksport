@@ -14,8 +14,29 @@ ROUNDTRIP_TOLERANCE = 0.000500002
 
 
 def read_file(path):
+    return read_file_with_format(path)[1]
+
+
+def read_file_with_format(path):
     path = Path(path)
-    return _format(path).decode(path.read_bytes())
+    if path.suffix:
+        codec = _format(path)
+        return path.suffix.lower(), codec.decode(path.read_bytes())
+
+    # File dialogs can return a temporary copy without the original extension.
+    with path.open("rb") as source:
+        for line in source:
+            if not line.strip() or line.startswith(b"-"):
+                continue
+            if line.startswith(b" 05 "):
+                suffix = ".kof"
+            elif line.split()[:1] == [b".HODE"]:
+                suffix = ".sos"
+            else:
+                break
+            source.seek(0)
+            return suffix, FORMATS[suffix].decode(source.read())
+    raise FormatError("Fila manglar filending, og innhaldet kunne ikkje kjennast att som SOSI eller KOF.")
 
 
 def _format(path):

@@ -45,7 +45,7 @@ def decode(data):
             row[61:68].strip(),
             row[58:60].strip(),
         ))
-    validate_points(points)
+    validate_points(points, require_unique_ids=False)
     return PointSet(tuple(points))
 
 
@@ -68,7 +68,7 @@ def _numeric_field(value, width, label, point_id):
 
 
 def encode(dataset):
-    validate_points(dataset.points)
+    validate_points(dataset.points, require_unique_ids=False)
     rows = []
     for point in dataset.points:
         point_id = point.point_id

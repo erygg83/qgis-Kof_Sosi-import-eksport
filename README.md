@@ -1,18 +1,18 @@
 # SOSI og KOF for QGIS
 
-Versjon 0.2.1 importerer fleire SOSI- og KOF-filer i same operasjon. SOSI-laga får teiknereglar etter objekttype i QGIS og ved lagring til nytt GeoPackage. Utvikling og testing er gjort med QGIS 4.0.2 på Windows. [Utviklingsplan](UTVIKLINGSPLAN.md)
+Versjon 0.2.3 tek vare på kvar KOF-måling ved import og eksport, også når fleire punkt har same namn. Du kan importere fleire SOSI- og KOF-filer i same operasjon. SOSI-laga får teiknereglar etter objekttype i QGIS og ved lagring til nytt GeoPackage. Utvikling og testing er gjort med QGIS 4.0.2 på Windows. [Utviklingsplan](UTVIKLINGSPLAN.md)
 
 ## Prøv i QGIS
 
-Bygg installasjonspakka frå Git i PowerShell ved behov.
+Last ned installasjonspakka frå [GitHub Releases](https://github.com/erygg83/qgis-Kof_Sosi-import-eksport/releases/latest). Du kan òg byggje pakka frå den innsjekka versjonen i PowerShell.
 
 ```powershell
 New-Item -ItemType Directory -Force dist | Out-Null
-git archive --format=zip --output=dist/qgis_sosi-0.2.1.zip HEAD qgis_sosi
+git archive --format=zip --output=dist/qgis_sosi-0.2.3.zip HEAD qgis_sosi
 ```
 
-1. Installer `dist/qgis_sosi-0.2.1.zip` frå **Utvidingar → Handsam og installer utvidingar → Installer frå ZIP**.
-2. Vel **Utvidingar → SOSI og KOF → Importer filer (SOSI/KOF)**. Hald inne **Ctrl** for å velje fleire filer i same dialog. Prøv [SOSI-eksempelet](tests/fixtures/utm32_points.sos) og [KOF-eksempelet](tests/fixtures/netlin05_points.kof).
+1. Installer `dist/qgis_sosi-0.2.3.zip` frå **Utvidingar → Handsam og installer utvidingar → Installer frå ZIP**.
+2. Vel **Utvidingar → SOSI og KOF → Importer filer (SOSI/KOF)**. Hald inne **Ctrl** for å velje fleire filer. Vel **Alle filer (*)** for å vise filer utan filending. Importen kjenner att mellombelse SOSI- og KOF-kopiar frå innhaldet. Prøv [SOSI-eksempelet](tests/fixtures/utm32_points.sos) og [KOF-eksempelet](tests/fixtures/netlin05_points.kof).
 3. Kontroller KOF-førehandsvisinga og stadfest kjelde-CRS og høgdesystem. For KOF-testfila er det EPSG:25832 og NN2000. Kryss av for felles innstillingar berre når alle dei attverande KOF-filene brukar same system.
 4. Sjå **Vis detaljar** for resultat per fil, eller vel **Lagre JSON-rapport**. Filfeil blir rapporterte medan dei andre filene blir prøvde.
 5. Bruk **Importer filer til nytt GeoPackage** for å lagre laga permanent. Vel eit nytt filnamn. GeoPackage-laga bevarer koordinatdimensjon og CRS, og høgdesystemet er dokumentert i metadata.

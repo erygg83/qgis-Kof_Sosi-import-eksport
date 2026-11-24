@@ -13,7 +13,7 @@ from qgis.PyQt.QtWidgets import (
     QInputDialog, QLabel, QLineEdit, QMessageBox, QTableWidget, QTableWidgetItem, QVBoxLayout,
 )
 
-from .exchange import export_file, read_file, write_atomic
+from .exchange import export_file, read_file, read_file_with_format, write_atomic
 from .geopackage import save_layers
 from .model import FormatError, HEIGHT_DATUMS, SosiVectorSet
 from .qgis_points import FIELD_NAMES, create_layers, projected_crs, read_layer
@@ -23,7 +23,7 @@ TITLE = "SOSI og KOF"
 SOSI_FILTER = "SOSI 4.5-punkt (*.sos)"
 KOF_FILTER = "netLIN KOF 05-punkt (*.kof)"
 FILTERS = f"{SOSI_FILTER};;{KOF_FILTER}"
-INPUT_FILTERS = f"Alle støtta filer (*.sos *.kof);;SOSI 4.5 (*.sos);;{KOF_FILTER}"
+INPUT_FILTERS = f"Alle støtta filer (*.sos *.kof);;SOSI 4.5 (*.sos);;{KOF_FILTER};;Alle filer (*)"
 
 
 class SurveyFilePlugin:
@@ -73,17 +73,16 @@ class SurveyFilePlugin:
         results = []
         prepared = []
         common_kof = None
-        remaining_kof = sum(path.suffix.lower() == ".kof" for path in paths)
+        possible_kof = sum(path.suffix.lower() in ("", ".kof") for path in paths)
         for path in paths:
             result = {"file": str(path), "status": "pending", "layers": [], "issues": []}
             results.append(result)
-            suffix = path.suffix.lower()
-            if suffix == ".kof":
-                remaining_kof -= 1
+            if path.suffix.lower() in ("", ".kof"):
+                possible_kof -= 1
             try:
-                dataset = read_file(path)
+                suffix, dataset = read_file_with_format(path)
                 if suffix == ".kof":
-                    options = common_kof or self._select_kof_options(path, dataset, remaining_kof > 0)
+                    options = common_kof or self._select_kof_options(path, dataset, possible_kof > 0)
                     if options is None:
                         result["status"] = "skipped"
                         result["issues"].append(_issue("info", "import.cancelled", "KOF-innstillingane vart avbrotne."))
