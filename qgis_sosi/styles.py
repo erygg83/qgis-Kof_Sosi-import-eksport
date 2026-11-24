@@ -75,6 +75,30 @@ def _area(style):
     })
 
 
+def apply_map_color(layer, color):
+    """Use one ink for the chosen layers, retaining SOSI text placement."""
+    layer.setCustomProperty("qgis_sosi/style", color.name())
+    if layer.labelsEnabled() and layer.labeling() is not None:
+        settings = layer.labeling().settings()
+        properties = settings.dataDefinedProperties()
+        properties.setProperty(QgsPalLayerSettings.Property.Color, QgsProperty())
+        settings.setDataDefinedProperties(properties)
+        text = settings.format()
+        text.setColor(color)
+        settings.setFormat(text)
+        layer.setLabeling(QgsVectorLayerSimpleLabeling(settings))
+        return
+    ink = color.name()
+    if layer.geometryType() == Qgis.GeometryType.Point:
+        symbol = _point(("", "circle", ink, color.darker(135).name(), 2.3))
+    elif layer.geometryType() == Qgis.GeometryType.Line:
+        symbol = _line(("", ink, 0.28, "solid"))
+    else:
+        fill = f"{color.red()},{color.green()},{color.blue()},55"
+        symbol = _area(("", fill, ink, 0.22))
+    layer.setRenderer(QgsSingleSymbolRenderer(symbol))
+
+
 def apply_sosi_style(layer):
     """Apply local display rules with one legend entry per observed category."""
     if "objtype" not in layer.fields().names():

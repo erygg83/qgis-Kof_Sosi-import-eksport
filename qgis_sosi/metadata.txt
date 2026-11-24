@@ -2,7 +2,8 @@
 name=SOSI og KOF
 description=Fleirfilimport med SOSI-teiknereglar til QGIS-lag eller GeoPackage. Eksport av SOSI- og KOF-punkt.
 about=Les SOSI 4.5 og netLIN KOF 05. Viser SOSI-objekt med teiknereglar etter type.
-version=0.2.3
+version=0.3.0
+icon=icon.png
 qgisMinimumVersion=4.0
 author=QGIS SOSI-prosjektet
 email=

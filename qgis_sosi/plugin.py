@@ -7,7 +7,7 @@ from pathlib import Path
 
 from qgis.core import Qgis, QgsProject, QgsVectorLayer
 from qgis.PyQt.QtCore import Qt
-from qgis.PyQt.QtGui import QAction
+from qgis.PyQt.QtGui import QAction, QIcon
 from qgis.PyQt.QtWidgets import (
     QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
     QInputDialog, QLabel, QLineEdit, QMessageBox, QTableWidget, QTableWidgetItem, QVBoxLayout,
@@ -15,8 +15,10 @@ from qgis.PyQt.QtWidgets import (
 
 from .exchange import export_file, read_file, read_file_with_format, write_atomic
 from .geopackage import save_layers
+from .import_dialog import ICON_PATH, ImportDialog
 from .model import FormatError, HEIGHT_DATUMS, SosiVectorSet
-from .qgis_points import FIELD_NAMES, create_layers, projected_crs, read_layer
+from .qgis_points import FIELD_NAMES, ImportSource, create_layers, projected_crs, read_layer
+from .styles import apply_map_color
 
 
 TITLE = "SOSI og KOF"
@@ -39,7 +41,7 @@ class SurveyFilePlugin:
             ("Valider fil (SOSI/KOF)", self.validate_file),
             ("Importer filer til nytt GeoPackage", self.import_geopackage),
         ):
-            action = QAction(label, self.parent)
+            action = QAction(QIcon(ICON_PATH), label, self.parent)
             action.triggered.connect(handler)
             self.iface.addPluginToMenu(TITLE, action)
             self.actions.append(action)
@@ -63,26 +65,51 @@ class SurveyFilePlugin:
         if not names:
             return
         paths = [Path(name) for name in dict.fromkeys(names)]
-        destination = None
-        if to_geopackage:
-            destination = self._choose_package()
-            if destination is None:
-                return
-
         project = QgsProject.instance()
         results = []
-        prepared = []
-        common_kof = None
-        possible_kof = sum(path.suffix.lower() in ("", ".kof") for path in paths)
+        sources = {}
+        errors = {}
         for path in paths:
             result = {"file": str(path), "status": "pending", "layers": [], "issues": []}
             results.append(result)
-            if path.suffix.lower() in ("", ".kof"):
-                possible_kof -= 1
             try:
-                suffix, dataset = read_file_with_format(path)
+                sources[path] = ImportSource.preview(*read_file_with_format(path))
+            except (FormatError, OSError) as error:
+                errors[path] = str(error)
+                result["status"] = "error"
+                result["issues"].append(_issue("error", "import.read", str(error)))
+        if not sources:
+            self._show_import_report(results, None)
+            return
+        dialog = ImportDialog(self.parent, sources, errors, to_geopackage)
+        try:
+            if dialog.exec() != QDialog.DialogCode.Accepted:
+                return
+            selected = dialog.selection()
+            color = dialog.style_color()
+        finally:
+            dialog.deleteLater()
+        destination = self._choose_package() if to_geopackage else None
+        if to_geopackage and destination is None:
+            return
+
+        prepared = []
+        common_kof = None
+        remaining_kof = sum(sources[path].suffix == ".kof" for path in selected)
+        for path, result in zip(paths, results):
+            if path not in sources:
+                continue
+            if not selected.get(path):
+                result["status"] = "skipped"
+                result["issues"].append(_issue("info", "import.selection", "Ingen lag valde."))
+                continue
+            source = sources[path]
+            dataset = source.subset(selected[path])
+            suffix = source.suffix
+            try:
                 if suffix == ".kof":
-                    options = common_kof or self._select_kof_options(path, dataset, possible_kof > 0)
+                    remaining_kof -= 1
+                    options = common_kof or self._select_kof_options(path, dataset, remaining_kof > 0)
                     if options is None:
                         result["status"] = "skipped"
                         result["issues"].append(_issue("info", "import.cancelled", "KOF-innstillingane vart avbrotne."))
@@ -94,6 +121,8 @@ class SurveyFilePlugin:
                 layers = create_layers(dataset, path.stem, suffix)
                 result["summary"] = self._summary(dataset)
                 for layer in layers:
+                    if color is not None:
+                        apply_map_color(layer, color)
                     metadata = layer.metadata()
                     metadata.setTitle(layer.name())
                     metadata.setAbstract(f"Kjelde: {path.name}\n{result['summary']}")
@@ -160,6 +189,7 @@ class SurveyFilePlugin:
                 f"{Path(result['file']).name} · {status_labels[result['status']]}", detail, issues,
             ))))
         message = QMessageBox(self.parent)
+        message.setWindowIcon(QIcon(ICON_PATH))
         message.setWindowTitle(TITLE)
         message.setTextFormat(Qt.TextFormat.PlainText)
         message.setIcon(QMessageBox.Icon.Warning if errors else QMessageBox.Icon.Information)
@@ -255,6 +285,7 @@ class SurveyFilePlugin:
     def _select_kof_options(self, path, dataset, can_reuse):
         dialog = QDialog(self.parent)
         dialog.setWindowTitle(f"KOF-import · {path.name}")
+        dialog.setWindowIcon(QIcon(ICON_PATH))
         layout = QVBoxLayout(dialog)
         layout.addWidget(QLabel("netLIN 05 les X som nord og Y som aust. Kontroller dei første punkta."))
         points = dataset.points[:6]
@@ -304,6 +335,7 @@ class SurveyFilePlugin:
             raise FormatError("Punktlaget må ha eit felt som kan brukast som punkt-ID.")
         dialog = QDialog(self.parent)
         dialog.setWindowTitle("Feltmapping for KOF-eksport")
+        dialog.setWindowIcon(QIcon(ICON_PATH))
         form = QFormLayout(dialog)
         form.addRow(QLabel("Nord, aust og eventuell høgd blir lesne frå geometrien i punktlaget."))
         inputs = {}

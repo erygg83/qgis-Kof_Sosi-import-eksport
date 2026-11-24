@@ -20,6 +20,8 @@ try:
 except ImportError as error:
     QGIS_UNAVAILABLE = str(error)
 else:
+    from qgis.PyQt.QtGui import QColor
+    from qgis_sosi.import_dialog import CHECKED, UNCHECKED, ImportDialog
     from qgis_sosi.plugin import KOF_FILTER, SOSI_FILTER, SurveyFilePlugin
     from qgis_sosi.qgis_points import create_layers, projected_crs, read_layer
 
@@ -60,6 +62,11 @@ class QgisPointTests(unittest.TestCase):
     def tearDownClass(cls):
         QgsProject.instance().clear()
         cls.app.exitQgis()
+
+    def setUp(self):
+        # Exercise the real dialog data and its default selection in menu tests.
+        self.preview = self.enterContext(patch.object(ImportDialog, "exec", autospec=True,
+                                                       return_value=QDialog.DialogCode.Accepted))
 
     def test_rejects_geographic_or_unrecognised_kof_crs(self):
         for code in ("EPSG:4326", "EPSG:9999999", ""):
@@ -296,8 +303,64 @@ class QgisPointTests(unittest.TestCase):
             self.assertEqual(plugin._select_kof_options(path, read_file(path), True),
                              ("EPSG:25832", "NN2000", True))
 
+    def test_import_preview_filters_types_skips_kof_and_saves_chosen_style(self):
+        from qgis.core import QgsVectorLayer
+        plugin = SurveyFilePlugin(TestInterface())
+        project = QgsProject.instance()
+        self.addCleanup(project.clear)
+        with TemporaryDirectory() as folder:
+            path = Path(folder) / "kart.sos"
+            path.write_bytes(PRESENTATION_SAMPLE.encode("iso8859-10"))
+            target = Path(folder) / "utval.gpkg"
+            kof_path = FIXTURES / "netlin05_points.kof"
+
+            def choose(dialog):
+                dialog._mark_visible(UNCHECKED)
+                self.assertFalse(dialog.confirm.isEnabled())
+                dialog.search.setText("kumlokk")
+                dialog._mark_visible(CHECKED)
+                dialog.search.clear()
+                self.assertEqual(dialog.selection(), {path: {("Punkt 3D", "Kumlokk")}})
+                self.assertTrue(dialog.confirm.isEnabled())
+                dialog.style_box.setCurrentIndex(dialog.style_box.findData("color"))
+                dialog.color_button.setColor(QColor("#c54635"))
+                return QDialog.DialogCode.Accepted
+
+            with (
+                patch.object(ImportDialog, "exec", new=choose),
+                patch("qgis_sosi.plugin.QFileDialog.getOpenFileNames", return_value=([str(path), str(kof_path)], "")),
+                patch.object(plugin, "_select_kof_options") as kof_options,
+                patch.object(plugin, "_choose_package", return_value=target),
+                patch.object(plugin, "_show_import_report") as report,
+            ):
+                plugin.import_geopackage()
+            kof_options.assert_not_called()
+            self.assertEqual([r["status"] for r in report.call_args.args[0]], ["imported", "skipped"])
+            layer, = project.mapLayers().values()
+            self.assertEqual(layer.featureCount(), 1)
+            with closing(sqlite3.connect(target)) as gpkg:
+                self.assertEqual(gpkg.execute("SELECT objtype FROM import_001").fetchall(), [("Kumlokk",)])
+            uri = layer.source()
+            project.clear()
+            layer = QgsVectorLayer(uri, "Omatt", "ogr")
+            self.assertEqual(layer.renderer().symbol().color().name(), "#c54635")
+            del layer
+
+    def test_cancel_import_preview_has_no_output(self):
+        plugin = SurveyFilePlugin(TestInterface())
+        path = FIXTURES / "utm32_points.sos"
+        self.preview.return_value = QDialog.DialogCode.Rejected
+        with (
+            patch("qgis_sosi.plugin.QFileDialog.getOpenFileNames", return_value=([str(path)], "")),
+            patch.object(plugin, "_choose_package") as choose_path,
+        ):
+            plugin.import_geopackage()
+        choose_path.assert_not_called()
+        self.assertFalse(QgsProject.instance().mapLayers())
+
     def test_sosi_uses_symbols_labels_and_curved_geometry_by_object_type(self):
         from qgis_sosi import sosi
+        from qgis_sosi.styles import apply_map_color
 
         data = sosi.decode(PRESENTATION_SAMPLE.encode("iso8859-10"))
         layers = create_layers(data, "Kart", ".sos")
@@ -316,6 +379,12 @@ class QgisPointTests(unittest.TestCase):
         self.assertEqual(labels["Testvegen"].labeling().settings().placement, Qgis.LabelPlacement.Curved)
         ar5 = next(layer for layer in layers if layer.customProperty("qgis_sosi/geometry") == "SYMBOL")
         self.assertEqual(ar5.renderer().categories()[0].label(), "Fulldyrka jord")
+        for layer in layers:
+            apply_map_color(layer, QColor("#778187"))
+        for layer in annotations:
+            self.assertTrue(layer.labelsEnabled())
+            self.assertEqual(layer.labeling().settings().format().color().name(), "#778187")
+        self.assertEqual(point_layer.renderer().symbol().color().name(), "#778187")
 
     def test_kof_export_reads_explicit_field_mapping_and_uses_point_geometry(self):
         dataset = replace(read_file(FIXTURES / "netlin05_points.kof"), crs="EPSG:25832")

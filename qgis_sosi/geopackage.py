@@ -47,18 +47,18 @@ def save_layers(destination, layers, transform_context):
         for key in original.customPropertyKeys():
             layer.setCustomProperty(key, original.customProperty(key))
         if original.customProperty("qgis_sosi/style", ""):
-            _save_sosi_style(layer, original)
+            _save_style(layer, original)
         saved.append(layer)
     return saved
 
 
-def _save_sosi_style(layer, source):
+def _save_style(layer, source):
     layer.setRenderer(source.renderer().clone())
     if source.labeling() is not None:
         layer.setLabeling(source.labeling().clone())
         layer.setLabelsEnabled(source.labelsEnabled())
     categories = QgsMapLayer.StyleCategory.Symbology | QgsMapLayer.StyleCategory.Labeling
-    result, message = layer.saveStyleToDatabaseV2("SOSI", "Lokale SOSI-teiknereglar", True, "", categories)
+    result, message = layer.saveStyleToDatabaseV2("Kartstil", "Kartstil frå SOSI og KOF", True, "", categories)
     failures = (
         QgsMapLayer.SaveStyleResult.QmlGenerationFailed.value
         | QgsMapLayer.SaveStyleResult.DatabaseWriteFailed.value

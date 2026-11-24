@@ -1,14 +1,18 @@
 """Map the supported SOSI and KOF geometries to and from PyQGIS memory layers."""
 
+from collections import Counter
+from dataclasses import dataclass, replace
+
 from qgis.core import (
     Qgis, QgsCircularString, QgsCompoundCurve, QgsCoordinateReferenceSystem,
     QgsCurvePolygon, QgsFeature, QgsField, QgsGeometry, QgsLineString, QgsPoint,
     QgsPointXY, QgsPolygon, QgsVariantUtils, QgsVectorLayer,
 )
 from qgis.PyQt.QtCore import QMetaType
+from qgis.PyQt.QtGui import QColor
 
 from .model import FormatError, PointSet, SosiVectorSet, SurveyPoint
-from .styles import apply_sosi_style
+from .styles import apply_map_color, apply_sosi_style
 
 
 HEIGHT_PROPERTY = "qgis_sosi/height_datum"
@@ -39,6 +43,38 @@ def projected_crs(authid):
     return crs
 
 
+@dataclass
+class ImportSource:
+    suffix: str
+    dataset: PointSet | SosiVectorSet
+    counts: Counter
+
+    @classmethod
+    def preview(cls, suffix, dataset):
+        return cls(suffix, dataset, Counter(key for _, key in _classified_items(suffix, dataset)))
+
+    def subset(self, selected):
+        if self.counts.keys() == selected:
+            return self.dataset
+        items = tuple(item for item, key in _classified_items(self.suffix, self.dataset) if key in selected)
+        if isinstance(self.dataset, SosiVectorSet):
+            return replace(self.dataset, features=items)
+        return replace(self.dataset, points=items)
+
+
+def _classified_items(suffix, dataset):
+    if isinstance(dataset, SosiVectorSet):
+        for feature in dataset.features:
+            kind, geometry, dimensions = _vector_group(feature)
+            label = f"{GEOMETRY_LABELS[kind, geometry]} {dimensions}D"
+            objtype = next((value for _, value in _attributes(feature.source_lines, {"..OBJTYPE"})), "")
+            yield feature, (label, objtype)
+    else:
+        for point in dataset.points:
+            label = "Punkt 2D" if point.z is None else "Punkt 3D"
+            yield point, (label, point.code if suffix == ".sos" else None)
+
+
 def create_layers(dataset, name, suffix):
     if isinstance(dataset, SosiVectorSet):
         return _create_sosi_vector_layers(dataset, name)
@@ -67,6 +103,8 @@ def create_layers(dataset, name, suffix):
         _add_features(layer, features)
         if suffix == ".sos":
             apply_sosi_style(layer)
+        else:
+            apply_map_color(layer, QColor("#176f77"))
         layers.append(layer)
     return layers
 
@@ -75,9 +113,7 @@ def _create_sosi_vector_layers(dataset, name):
     crs = projected_crs(dataset.crs)
     grouped = {}
     for feature in dataset.features:
-        geometry_type = _sosi_geometry_type(feature)
-        key = feature.kind, geometry_type, len(feature.vertices[0])
-        grouped.setdefault(key, []).append(feature)
+        grouped.setdefault(_vector_group(feature), []).append(feature)
 
     layers = []
     for kind, geometry_type in GEOMETRY_LABELS:
@@ -102,13 +138,7 @@ def _sosi_layer(group, name, geometry_type, dimensions, label, crs, dataset):
     for source in group:
         feature = QgsFeature(layer.fields())
         attributes = {}
-        for line in source.source_lines:
-            parts = line.split(maxsplit=1)
-            if len(parts) != 2 or parts[0] not in SOSI_VECTOR_FIELDS:
-                continue
-            key, value = parts
-            if len(value) >= 2 and value[0] in ("'", '"') and value[0] == value[-1]:
-                value = value[1:-1]
+        for key, value in _attributes(source.source_lines, SOSI_VECTOR_FIELDS):
             if key == "..STRENG" and key in attributes:
                 value = attributes[key] + "\n" + value
             attributes[key] = value
@@ -121,6 +151,20 @@ def _sosi_layer(group, name, geometry_type, dimensions, label, crs, dataset):
     _add_features(layer, features)
     apply_sosi_style(layer)
     return layer
+
+
+def _attributes(lines, keys):
+    for line in lines:
+        parts = line.split(maxsplit=1)
+        if len(parts) == 2 and parts[0] in keys:
+            key, value = parts
+            if len(value) >= 2 and value[0] in ("'", '"') and value[0] == value[-1]:
+                value = value[1:-1]
+            yield key, value
+
+
+def _vector_group(feature):
+    return feature.kind, _sosi_geometry_type(feature), len(feature.vertices[0])
 
 
 def _sosi_geometry_type(feature):

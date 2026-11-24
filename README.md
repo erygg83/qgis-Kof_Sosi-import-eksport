@@ -1,6 +1,6 @@
 # SOSI og KOF for QGIS
 
-Versjon 0.2.3 tek vare på kvar KOF-måling ved import og eksport, også når fleire punkt har same namn. Du kan importere fleire SOSI- og KOF-filer i same operasjon. SOSI-laga får teiknereglar etter objekttype i QGIS og ved lagring til nytt GeoPackage. Utvikling og testing er gjort med QGIS 4.0.2 på Windows. [Utviklingsplan](UTVIKLINGSPLAN.md)
+Versjon 0.3.0 viser filer, lag og SOSI-objekttypar før import. Du kan avgrense utvalet og velje kartstil for QGIS eller eit nytt GeoPackage. Utvikling og testing er gjort med QGIS 4.0.2 på Windows. [Utviklingsplan](UTVIKLINGSPLAN.md)
 
 ## Prøv i QGIS
 
@@ -8,15 +8,16 @@ Last ned installasjonspakka frå [GitHub Releases](https://github.com/erygg83/qg
 
 ```powershell
 New-Item -ItemType Directory -Force dist | Out-Null
-git archive --format=zip --output=dist/qgis_sosi-0.2.3.zip HEAD qgis_sosi
+git archive --format=zip --output=dist/qgis_sosi-0.3.0.zip HEAD qgis_sosi
 ```
 
-1. Installer `dist/qgis_sosi-0.2.3.zip` frå **Utvidingar → Handsam og installer utvidingar → Installer frå ZIP**.
+1. Installer `dist/qgis_sosi-0.3.0.zip` frå **Utvidingar → Handsam og installer utvidingar → Installer frå ZIP**.
 2. Vel **Utvidingar → SOSI og KOF → Importer filer (SOSI/KOF)**. Hald inne **Ctrl** for å velje fleire filer. Vel **Alle filer (*)** for å vise filer utan filending. Importen kjenner att mellombelse SOSI- og KOF-kopiar frå innhaldet. Prøv [SOSI-eksempelet](tests/fixtures/utm32_points.sos) og [KOF-eksempelet](tests/fixtures/netlin05_points.kof).
-3. Kontroller KOF-førehandsvisinga og stadfest kjelde-CRS og høgdesystem. For KOF-testfila er det EPSG:25832 og NN2000. Kryss av for felles innstillingar berre når alle dei attverande KOF-filene brukar same system.
-4. Sjå **Vis detaljar** for resultat per fil, eller vel **Lagre JSON-rapport**. Filfeil blir rapporterte medan dei andre filene blir prøvde.
-5. Bruk **Importer filer til nytt GeoPackage** for å lagre laga permanent. Vel eit nytt filnamn. GeoPackage-laga bevarer koordinatdimensjon og CRS, og høgdesystemet er dokumentert i metadata.
-6. Vel eit punktlag og bruk **Eksporter aktivt lag (SOSI/KOF)**. For KOF vel du kva felt som skal gi punkt-ID, temakode, merknad og berekningskode. Koordinatar og høgd kjem frå geometrien. **Valider fil (SOSI/KOF)** sjekkar syntaks innanfor dei støtta importprofilane.
+3. I **Vel innhald til kartet** kan du krysse av heile filer, enkeltlag eller SOSI-objekttypar. Alle er valde frå start. Søk avgrensar lista. **Vel synlege** og **Fjern synlege** endrar avkryssinga for treffa. Vel standardstil, grått bakgrunnskart eller eigen farge, og trykk **Importer valde**.
+4. For valde KOF-filer kontrollerer du punktførehandsvisinga og stadfestar kjelde-CRS og høgdesystem. For KOF-testfila er det EPSG:25832 og NN2000. Kryss av for felles innstillingar berre når alle dei attverande KOF-filene brukar same system.
+5. Sjå **Vis detaljar** for resultat per fil, eller vel **Lagre JSON-rapport**. Filfeil blir rapporterte medan dei andre filene blir prøvde.
+6. Bruk **Importer filer til nytt GeoPackage** for å lagre laga permanent. Vel eit nytt filnamn. GeoPackage-laga bevarer koordinatdimensjon og CRS, og høgdesystemet er dokumentert i metadata.
+7. Vel eit punktlag og bruk **Eksporter aktivt lag (SOSI/KOF)**. For KOF vel du kva felt som skal gi punkt-ID, temakode, merknad og berekningskode. Koordinatar og høgd kjem frå geometrien. **Valider fil (SOSI/KOF)** sjekkar syntaks innanfor dei støtta importprofilane.
 
 ## Stadfesta omfang
 
